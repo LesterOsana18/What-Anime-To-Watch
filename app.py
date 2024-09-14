@@ -276,3 +276,6 @@ def submit_rating(anime_id):
 
     # Redirect back to the ratings page
     return redirect("/ratings")
+
+if __name__ == "__main__":
+    app.run(debug=True)
