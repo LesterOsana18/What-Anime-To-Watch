@@ -186,24 +186,24 @@ def random_anime():
 
 
 @app.route("/list", methods=["GET", "POST"])
+@login_required
 def list():
     if request.method == "POST":
-        # Add the user's entry into the database
         title = request.form.get("title")
         rank = request.form.get("rank")
         if not title or not rank:
             return redirect("/list")
 
         # Insert user input into the database with the default status 'Pending'
-        db_info.execute("INSERT INTO list (title, rank, status) VALUES(?, ?, ?)",
-                        title, rank, "Pending")
+        db_info.execute("INSERT INTO list (title, rank, status, user_id) VALUES(?, ?, ?, ?)",
+                        title, rank, "Pending", session["user_id"])
 
         # Redirect to the list page after adding an entry.
         return redirect("/list")
 
     else:
         # Display the entries in the database on list.html
-        entries = db_info.execute("SELECT * FROM list")
+        entries = db_info.execute("SELECT * FROM list WHERE user_id = ?", session["user_id"])
         return render_template("list.html", entries=entries)
 
 
@@ -220,13 +220,16 @@ def ratings():
     conn = sqlite3.connect('list.db')
     cursor = conn.cursor()
 
+    # Get the current user_id from the session
+    user_id = session.get("user_id")
+
     # Execute the query
     cursor.execute("""
         SELECT l.id, l.title, l.rank, r.rating, r.comment, r.submitted
         FROM list l
         LEFT JOIN ratings r ON l.id = r.anime_id
-        WHERE l.status = 'Finished'
-    """)
+        WHERE l.status = 'Finished' AND l.user_id = ?
+    """, (user_id,))
 
     # Fetch all rows
     animes = cursor.fetchall()
@@ -240,42 +243,40 @@ def ratings():
 
 @app.route("/submit_rating/<int:anime_id>", methods=["POST"])
 def submit_rating(anime_id):
-    # Get rating and comment from form data
     rating = request.form.get(f'rating_{anime_id}')
     comment = request.form.get(f'comment_{anime_id}')
-    print(f"Rating: {rating}, Comment: {comment}")
 
-    # Debug prints to check received values
-    print(f"Received rating: '{rating}', comment: '{comment}' for anime_id: {anime_id}")
+    if not rating or not comment:
+        return redirect("/ratings")
 
-    # Connect to the database
     conn = sqlite3.connect('list.db')
     cursor = conn.cursor()
 
-    # Check if there's already an entry for this anime_id in the ratings table
+    # Get the current user's ID
+    user_id = session.get("user_id")
+
+    # Check if there's already an entry for this anime_id and user_id in the ratings table
     existing_rating = cursor.execute(
-        "SELECT * FROM ratings WHERE anime_id = ?", (anime_id,)).fetchone()
+        "SELECT * FROM ratings WHERE anime_id = ? AND user_id = ?", (anime_id, user_id)).fetchone()
 
     if existing_rating:
         # Update existing rating
         cursor.execute("""
             UPDATE ratings
             SET rating = ?, comment = ?, submitted = 1
-            WHERE anime_id = ?
-        """, (rating, comment, anime_id))
+            WHERE anime_id = ? AND user_id = ?
+        """, (rating, comment, anime_id, user_id))
     else:
         # Insert new rating
         cursor.execute("""
-            INSERT INTO ratings (anime_id, rating, comment, submitted)
-            VALUES (?, ?, ?, 1)
-        """, (anime_id, rating, comment))
+            INSERT INTO ratings (anime_id, rating, comment, submitted, user_id)
+            VALUES (?, ?, ?, 1, ?)
+        """, (anime_id, rating, comment, user_id))
 
-    # Commit changes and close the connection
     conn.commit()
     conn.close()
 
-    # Redirect back to the ratings page
     return redirect("/ratings")
-
+    
 if __name__ == "__main__":
     app.run(debug=True)
