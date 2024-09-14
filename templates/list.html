@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    List
+{% endblock %}
+
+{% block main %}
+    <div class="header">
+        <h1>Anime List</h1>
+    </div>
+    <div class="container">
+        <div class="section">
+            <h2>Add an Anime</h2>
+            <form action="/list" method="POST">
+                <input type="text" autocomplete="off" name="title" placeholder="Title" required>
+                <input type="number" autocomplete="off" name="rank" placeholder="Rank" min="1" required>
+                <input type="submit" value="Add to List">
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Pending Animes to Watch</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Rank</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                        <tr>
+                            <td>{{ entry.title }}</td>
+                            <td>{{ entry.rank }}</td>
+                            <td>
+                                <form action="/update_status/{{ entry.id }}" method="POST">
+                                    <button type="button" class="btn {% if entry.status == 'Pending' %}btn-primary{% else %}btn-secondary{% endif %}" disabled>Pending</button>
+                                    <button type="submit" class="btn {% if entry.status == 'Finished' %}btn-primary{% else %}btn-secondary{% endif %}">Finished</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}
